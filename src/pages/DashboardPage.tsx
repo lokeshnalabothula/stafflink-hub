@@ -1,10 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { StatCard } from '@/components/StatCard';
-import { Users, UserCheck, CalendarOff, Wallet, Clock, TrendingUp, ShoppingCart, AlertTriangle, IndianRupee, Package } from 'lucide-react';
+import { Users, UserCheck, CalendarOff, Wallet, Clock, TrendingUp, ShoppingCart, IndianRupee, Package } from 'lucide-react';
 import { users, attendanceRecords, leaveRequests, activityLogs, monthlyAttendance, departmentBreakdown, orders, monthlyRevenue } from '@/data/mock';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -176,9 +175,8 @@ function OwnerDashboard() {
 function WorkerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const todayAttendance = attendanceRecords.find(a => a.user_id === user?.id && a.date === '2026-03-08');
-  const myOrders = orders.filter(o => o.assigned_to.includes(user?.id || '') && o.status !== 'completed' && o.status !== 'cancelled');
-  const myUpcoming = myOrders.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+  const todayAttendance = attendanceRecords.find(a => a.user_id === 'u2' && a.date === '2026-03-08');
+  const myOrders = orders.filter(o => o.status !== 'completed' && o.status !== 'cancelled');
 
   return (
     <div className="space-y-6">
@@ -220,9 +218,9 @@ function WorkerDashboard() {
             <h3 className="text-sm font-semibold">Upcoming Orders</h3>
             <Button variant="ghost" size="sm" className="text-xs text-primary" onClick={() => navigate('/orders')}>View all</Button>
           </div>
-          {myUpcoming.length > 0 ? (
+          {myOrders.length > 0 ? (
             <div className="space-y-3">
-              {myUpcoming.map(o => {
+              {myOrders.slice(0, 4).map(o => {
                 const daysLeft = Math.ceil((new Date(o.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                 return (
                   <div key={o.id} className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
@@ -253,6 +251,6 @@ function WorkerDashboard() {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  return user?.role === 'owner' ? <OwnerDashboard /> : <WorkerDashboard />;
+  const { role } = useAuth();
+  return role === 'owner' ? <OwnerDashboard /> : <WorkerDashboard />;
 }

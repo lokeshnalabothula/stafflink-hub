@@ -1,35 +1,64 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { User } from '@/types';
-import { users } from '@/data/mock';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface UserProfile {
+  user_id: string;
+  name: string;
+  mobile: string;
+  department?: string;
+  position?: string;
+  salary?: number;
+  join_date?: string;
+  address?: string;
+  profile_photo?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: UserProfile | null;
+  role: 'owner' | 'worker' | null;
   isAuthenticated: boolean;
-  login: (mobile: string) => boolean;
+  isLoading: boolean;
+  login: (data: { user_id: string; role: string; profile: UserProfile }) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [role, setRole] = useState<'owner' | 'worker' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (mobile: string): boolean => {
-    // Mock: find user by mobile
-    const found = users.find((u) => u.mobile === mobile);
-    if (found) {
-      setUser(found);
-      return true;
+  useEffect(() => {
+    // Check for stored session
+    const stored = localStorage.getItem('staffhub_session');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setUser(parsed.user);
+        setRole(parsed.role);
+      } catch {
+        localStorage.removeItem('staffhub_session');
+      }
     }
-    // Default: log in as first worker for demo
-    setUser(users[1]);
-    return true;
+    setIsLoading(false);
+  }, []);
+
+  const login = (data: { user_id: string; role: string; profile: UserProfile }) => {
+    const userRole = data.role as 'owner' | 'worker';
+    setUser(data.profile);
+    setRole(userRole);
+    localStorage.setItem('staffhub_session', JSON.stringify({ user: data.profile, role: userRole }));
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    setUser(null);
+    setRole(null);
+    localStorage.removeItem('staffhub_session');
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, login, logout }}>
+    <AuthContext.Provider value={{ user, role, isAuthenticated: !!user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

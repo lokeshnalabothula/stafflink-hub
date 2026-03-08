@@ -6,8 +6,8 @@ import { Clock, LogIn, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function AttendancePage() {
-  const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
+  const { user, role } = useAuth();
+  const isOwner = role === 'owner';
   const [checkedIn, setCheckedIn] = useState(false);
 
   const statusColors: Record<string, string> = {
@@ -20,36 +20,18 @@ export default function AttendancePage() {
   const getUserName = (id: string) => users.find(u => u.id === id)?.name || 'Unknown';
 
   if (!isOwner) {
+    // Worker view: read-only attendance history
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">My Attendance</h1>
-          <p className="text-sm text-muted-foreground">Mark your daily attendance</p>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border p-8 text-center">
-          <Clock className="w-12 h-12 text-primary mx-auto mb-4" />
-          <p className="text-lg font-semibold mb-1">
-            {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-          <p className="text-3xl font-bold text-primary my-4">
-            {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-          </p>
-          {!checkedIn ? (
-            <Button className="gap-2" size="lg" onClick={() => setCheckedIn(true)}>
-              <LogIn className="w-4 h-4" /> Check In
-            </Button>
-          ) : (
-            <Button variant="outline" className="gap-2 border-destructive text-destructive hover:bg-destructive/10" size="lg" onClick={() => setCheckedIn(false)}>
-              <LogOut className="w-4 h-4" /> Check Out
-            </Button>
-          )}
+          <p className="text-sm text-muted-foreground">Your attendance history (marked by owner)</p>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-5">
           <h3 className="text-sm font-semibold mb-3">Recent Attendance</h3>
           <div className="space-y-2">
-            {attendanceRecords.filter(a => a.user_id === user?.id).map(a => (
+            {attendanceRecords.filter(a => a.user_id === 'u2').map(a => (
               <div key={a.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <span className="text-sm">{a.date}</span>
                 <div className="flex items-center gap-3 text-xs">
@@ -64,11 +46,12 @@ export default function AttendancePage() {
     );
   }
 
+  // Owner view: mark attendance for workers
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Attendance</h1>
-        <p className="text-sm text-muted-foreground">Today — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p className="text-sm text-muted-foreground">Mark and manage employee attendance — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
