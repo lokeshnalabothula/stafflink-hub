@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function EmployeesPage() {
-  const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
+  const { role } = useAuth();
+  const isOwner = role === 'owner';
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
   const [addOpen, setAddOpen] = useState(false);

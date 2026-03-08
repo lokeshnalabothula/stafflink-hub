@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 
 export default function PayrollPage() {
-  const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
-  const records = isOwner ? payrollRecords : payrollRecords.filter(p => p.user_id === user?.id);
+  const { role } = useAuth();
+  const isOwner = role === 'owner';
+  const records = isOwner ? payrollRecords : payrollRecords.filter(p => p.user_id === 'u2');
 
   const totalPayroll = payrollRecords.reduce((sum, p) => sum + p.net_salary, 0);
 

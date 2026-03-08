@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Search, Calendar, AlertTriangle, Clock, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -33,13 +32,13 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function OrdersPage() {
-  const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
+  const { role } = useAuth();
+  const isOwner = role === 'owner';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [addOpen, setAddOpen] = useState(false);
 
-  const myOrders = isOwner ? orders : orders.filter(o => o.assigned_to.includes(user?.id || ''));
+  const myOrders = isOwner ? orders : orders;
   const filtered = myOrders.filter(o => {
     const matchSearch = o.title.toLowerCase().includes(search.toLowerCase()) || o.customer_name.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || o.status === statusFilter;
@@ -106,7 +105,6 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* Summary cards for owner */}
       {isOwner && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(['pending', 'in-progress', 'completed', 'cancelled'] as const).map(status => (

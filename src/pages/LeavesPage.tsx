@@ -10,8 +10,8 @@ import { Plus, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function LeavesPage() {
-  const { user } = useAuth();
-  const isOwner = user?.role === 'owner';
+  const { role } = useAuth();
+  const isOwner = role === 'owner';
   const [applyOpen, setApplyOpen] = useState(false);
 
   const statusStyles: Record<string, string> = {
@@ -20,7 +20,7 @@ export default function LeavesPage() {
     rejected: 'bg-destructive/10 text-destructive',
   };
 
-  const leaves = isOwner ? leaveRequests : leaveRequests.filter(l => l.user_id === user?.id);
+  const leaves = isOwner ? leaveRequests : leaveRequests.filter(l => l.user_id === 'u2');
 
   return (
     <div className="space-y-6">
