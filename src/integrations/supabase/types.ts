@@ -256,6 +256,7 @@ export type Database = {
           position: string | null
           profile_photo: string | null
           salary: number | null
+          status: string
           updated_at: string
           user_id: string
         }
@@ -270,6 +271,7 @@ export type Database = {
           position?: string | null
           profile_photo?: string | null
           salary?: number | null
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -284,6 +286,7 @@ export type Database = {
           position?: string | null
           profile_photo?: string | null
           salary?: number | null
+          status?: string
           updated_at?: string
           user_id?: string
         }
