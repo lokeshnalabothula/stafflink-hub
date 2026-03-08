@@ -1,14 +1,34 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { payrollRecords } from '@/data/mock';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Download } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 
 export default function PayrollPage() {
   const { role } = useAuth();
   const isOwner = role === 'owner';
-  const records = isOwner ? payrollRecords : payrollRecords.filter(p => p.user_id === 'u2');
 
-  const totalPayroll = payrollRecords.reduce((sum, p) => sum + p.net_salary, 0);
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ['payroll'],
+    queryFn: async () => {
+      const { data } = await supabase.from('payroll').select('*').order('month', { ascending: false });
+      return data || [];
+    },
+  });
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles-names-payroll'],
+    enabled: isOwner,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('user_id, name');
+      return data || [];
+    },
+  });
+
+  const getProfileName = (userId: string) => profiles.find((p: any) => p.user_id === userId)?.name || 'Unknown';
+  const totalPayroll = records.reduce((sum: number, p: any) => sum + (p.net_salary || 0), 0);
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="space-y-6">
@@ -24,40 +44,38 @@ export default function PayrollPage() {
         )}
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-muted/50 text-muted-foreground text-xs">
-                {isOwner && <th className="text-left p-3 font-medium">Employee</th>}
-                <th className="text-left p-3 font-medium">Month</th>
-                <th className="text-right p-3 font-medium">Base Salary</th>
-                <th className="text-right p-3 font-medium">Bonus</th>
-                <th className="text-right p-3 font-medium">Deductions</th>
-                <th className="text-right p-3 font-medium">Net Salary</th>
-                <th className="text-center p-3 font-medium">Payslip</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map(p => (
-                <tr key={p.id} className="border-t border-border">
-                  {isOwner && <td className="p-3 font-medium">{p.user_name}</td>}
-                  <td className="p-3 text-muted-foreground">{p.month}</td>
-                  <td className="p-3 text-right">₹{p.base_salary.toLocaleString()}</td>
-                  <td className="p-3 text-right text-success">+₹{p.bonus.toLocaleString()}</td>
-                  <td className="p-3 text-right text-destructive">-₹{p.deductions.toLocaleString()}</td>
-                  <td className="p-3 text-right font-semibold">₹{p.net_salary.toLocaleString()}</td>
-                  <td className="p-3 text-center">
-                    <Button variant="ghost" size="sm" className="gap-1 text-xs">
-                      <Download className="w-3 h-3" /> PDF
-                    </Button>
-                  </td>
+      {records.length === 0 ? (
+        <p className="text-center py-12 text-muted-foreground">No payroll records yet</p>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/50 text-muted-foreground text-xs">
+                  {isOwner && <th className="text-left p-3 font-medium">Employee</th>}
+                  <th className="text-left p-3 font-medium">Month</th>
+                  <th className="text-right p-3 font-medium">Base Salary</th>
+                  <th className="text-right p-3 font-medium">Bonus</th>
+                  <th className="text-right p-3 font-medium">Deductions</th>
+                  <th className="text-right p-3 font-medium">Net Salary</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {records.map((p: any) => (
+                  <tr key={p.id} className="border-t border-border">
+                    {isOwner && <td className="p-3 font-medium">{getProfileName(p.user_id)}</td>}
+                    <td className="p-3 text-muted-foreground">{p.month}</td>
+                    <td className="p-3 text-right">₹{(p.base_salary || 0).toLocaleString()}</td>
+                    <td className="p-3 text-right text-success">+₹{(p.bonus || 0).toLocaleString()}</td>
+                    <td className="p-3 text-right text-destructive">-₹{(p.deductions || 0).toLocaleString()}</td>
+                    <td className="p-3 text-right font-semibold">₹{(p.net_salary || 0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
