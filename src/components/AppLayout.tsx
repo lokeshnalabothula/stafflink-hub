@@ -7,8 +7,9 @@ import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function AppLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
+  if (isLoading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (

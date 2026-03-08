@@ -1,36 +1,120 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, ArrowRight, Shield } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Phone, ArrowRight, Shield, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+
+type Step = 'mobile' | 'otp' | 'signup';
 
 export default function LoginPage() {
-  const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
+  const [step, setStep] = useState<Step>('mobile');
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<string>('worker');
+  const [loading, setLoading] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (mobile.length < 10) {
-      setError('Please enter a valid mobile number');
+      toast.error('Please enter a valid mobile number with country code');
       return;
     }
-    setError('');
-    setStep('otp');
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { mobile },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      toast.success('OTP sent to your mobile');
+      setStep('otp');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleVerifyOTP = () => {
-    if (otp.length < 4) {
-      setError('Please enter the OTP');
+  const handleVerifyOTP = async () => {
+    if (otp.length < 6) {
+      toast.error('Please enter the 6-digit OTP');
       return;
     }
-    // Mock: any OTP works
-    login(mobile);
-    navigate('/dashboard');
+    setLoading(true);
+    try {
+      const body: any = { mobile, otp };
+      if (isNewUser || step === 'signup') {
+        body.name = name;
+        body.role = role;
+      }
+
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
+        body,
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.is_new_user && !name) {
+        // New user needs to provide name and role
+        setIsNewUser(true);
+        setStep('signup');
+        setLoading(false);
+        return;
+      }
+
+      // Login successful
+      login({
+        user_id: data.user_id,
+        role: data.role,
+        profile: data.profile,
+      });
+      toast.success('Welcome to StaffHub!');
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast.error(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignupSubmit = async () => {
+    if (!name.trim()) {
+      toast.error('Please enter your name');
+      return;
+    }
+    setLoading(true);
+    try {
+      // Re-send OTP for the signup flow
+      const { data: sendData } = await supabase.functions.invoke('send-otp', {
+        body: { mobile },
+      });
+      if (sendData?.error) {
+        toast.error(sendData.error);
+        setLoading(false);
+        return;
+      }
+      toast.success('New OTP sent. Please verify to complete signup.');
+      setStep('otp');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,13 +134,8 @@ export default function LoginPage() {
 
         <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
           <AnimatePresence mode="wait">
-            {step === 'mobile' ? (
-              <motion.div
-                key="mobile"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
+            {step === 'mobile' && (
+              <motion.div key="mobile" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <h2 className="text-lg font-semibold mb-1">Login</h2>
                 <p className="text-sm text-muted-foreground mb-5">Enter your mobile number to receive OTP</p>
                 <div className="relative mb-4">
@@ -69,25 +148,17 @@ export default function LoginPage() {
                     type="tel"
                   />
                 </div>
-                {error && <p className="text-xs text-destructive mb-3">{error}</p>}
-                <Button onClick={handleSendOTP} className="w-full gap-2">
-                  Send OTP <ArrowRight className="w-4 h-4" />
+                <Button onClick={handleSendOTP} className="w-full gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  Send OTP
                 </Button>
-                <p className="text-[11px] text-muted-foreground text-center mt-4">
-                  Demo: Enter any number, then any 4+ digit OTP
-                </p>
               </motion.div>
-            ) : (
-              <motion.div
-                key="otp"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-              >
+            )}
+
+            {step === 'otp' && (
+              <motion.div key="otp" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <h2 className="text-lg font-semibold mb-1">Verify OTP</h2>
-                <p className="text-sm text-muted-foreground mb-5">
-                  Enter the OTP sent to {mobile}
-                </p>
+                <p className="text-sm text-muted-foreground mb-5">Enter the 6-digit OTP sent to {mobile}</p>
                 <Input
                   placeholder="Enter OTP"
                   value={otp}
@@ -95,30 +166,49 @@ export default function LoginPage() {
                   className="mb-4 text-center text-lg tracking-[0.5em]"
                   maxLength={6}
                 />
-                {error && <p className="text-xs text-destructive mb-3">{error}</p>}
-                <Button onClick={handleVerifyOTP} className="w-full gap-2 mb-3">
-                  Verify & Login <ArrowRight className="w-4 h-4" />
+                <Button onClick={handleVerifyOTP} className="w-full gap-2 mb-3" disabled={loading}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  Verify & Login
                 </Button>
-                <Button variant="ghost" className="w-full text-sm" onClick={() => { setStep('mobile'); setOtp(''); setError(''); }}>
+                <Button variant="ghost" className="w-full text-sm" onClick={() => { setStep('mobile'); setOtp(''); }}>
                   Change number
                 </Button>
               </motion.div>
             )}
-          </AnimatePresence>
-        </div>
 
-        <div className="mt-6 bg-card rounded-xl border border-border p-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Demo Accounts</p>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Owner:</span>
-              <button onClick={() => { setMobile('+919876543210'); }} className="text-primary font-medium">+919876543210</button>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Worker:</span>
-              <button onClick={() => { setMobile('+919876543211'); }} className="text-primary font-medium">+919876543211</button>
-            </div>
-          </div>
+            {step === 'signup' && (
+              <motion.div key="signup" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                <h2 className="text-lg font-semibold mb-1">Create Account</h2>
+                <p className="text-sm text-muted-foreground mb-5">New user! Please enter your details.</p>
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <Label>Full Name</Label>
+                    <Input placeholder="Your full name" value={name} onChange={e => setName(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Role</Label>
+                    <Select value={role} onValueChange={setRole}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="owner">Owner</SelectItem>
+                        <SelectItem value="worker">Worker</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Owner: Full access to manage staff. Worker: View personal data.
+                    </p>
+                  </div>
+                </div>
+                <Button onClick={handleSignupSubmit} className="w-full gap-2" disabled={loading}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                  Continue
+                </Button>
+                <Button variant="ghost" className="w-full text-sm mt-2" onClick={() => { setStep('mobile'); setIsNewUser(false); }}>
+                  Back
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>

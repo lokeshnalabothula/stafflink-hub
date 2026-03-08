@@ -31,11 +31,10 @@ const workerLinks = [
 ];
 
 export function AppSidebar() {
-  const { user, logout } = useAuth();
+  const { user, role, logout } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const location = useLocation();
-  const links = user?.role === 'owner' ? ownerLinks : workerLinks;
+  const links = role === 'owner' ? ownerLinks : workerLinks;
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -79,11 +78,11 @@ export function AppSidebar() {
         {!collapsed && user && (
           <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-sidebar-accent/40 mb-2">
             <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-xs font-bold">
-              {user.name.charAt(0)}
+              {user.name?.charAt(0) || '?'}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-sidebar-primary-foreground truncate">{user.name}</p>
-              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{user.role}</p>
+              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{role}</p>
             </div>
           </div>
         )}
