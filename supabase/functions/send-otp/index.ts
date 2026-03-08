@@ -12,11 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const { mobile } = await req.json();
+    let { mobile } = await req.json();
     if (!mobile || mobile.length < 10) {
       return new Response(JSON.stringify({ error: 'Invalid mobile number' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Ensure mobile has country code
+    mobile = mobile.trim().replace(/\s+/g, '');
+    if (!mobile.startsWith('+')) {
+      mobile = '+91' + mobile; // Default to India
     }
 
     const supabaseAdmin = createClient(
@@ -91,9 +97,18 @@ serve(async (req) => {
     if (!twilioResponse.ok) {
       const errData = await twilioResponse.text();
       console.error('Twilio error:', errData);
-      return new Response(JSON.stringify({ error: 'Failed to send OTP' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      // Parse Twilio error for better messaging
+      try {
+        const errJson = JSON.parse(errData);
+        const msg = errJson.message || 'Failed to send OTP';
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch {
+        return new Response(JSON.stringify({ error: 'Failed to send OTP. Check your phone number format.' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, message: 'OTP sent successfully' }), {

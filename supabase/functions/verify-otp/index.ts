@@ -12,12 +12,18 @@ serve(async (req) => {
   }
 
   try {
-    const { mobile, otp, name, role } = await req.json();
+    let { mobile, otp, name, role } = await req.json();
 
     if (!mobile || !otp) {
       return new Response(JSON.stringify({ error: 'Mobile and OTP are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+
+    // Normalize mobile
+    mobile = mobile.trim().replace(/\s+/g, '');
+    if (!mobile.startsWith('+')) {
+      mobile = '+91' + mobile;
+    }
     }
 
     const supabaseAdmin = createClient(
