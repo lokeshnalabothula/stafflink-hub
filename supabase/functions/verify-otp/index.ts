@@ -86,7 +86,7 @@ serve(async (req) => {
     // Check if user exists by mobile in profiles
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('user_id, status')
       .eq('mobile', mobile)
       .single();
 
@@ -95,6 +95,13 @@ serve(async (req) => {
 
     if (existingProfile) {
       userId = existingProfile.user_id;
+      // If profile was pre-registered by owner, mark as active now
+      if (existingProfile.status === 'pending') {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ status: 'active' })
+          .eq('user_id', userId);
+      }
     } else {
       // New user — create auth user with phone
       isNewUser = true;
@@ -121,6 +128,7 @@ serve(async (req) => {
         user_id: userId,
         name: name || 'User',
         mobile,
+        status: 'active',
       });
 
       // Assign role
