@@ -97,9 +97,18 @@ serve(async (req) => {
     if (!twilioResponse.ok) {
       const errData = await twilioResponse.text();
       console.error('Twilio error:', errData);
-      return new Response(JSON.stringify({ error: 'Failed to send OTP' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      // Parse Twilio error for better messaging
+      try {
+        const errJson = JSON.parse(errData);
+        const msg = errJson.message || 'Failed to send OTP';
+        return new Response(JSON.stringify({ error: msg }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch {
+        return new Response(JSON.stringify({ error: 'Failed to send OTP. Check your phone number format.' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, message: 'OTP sent successfully' }), {
