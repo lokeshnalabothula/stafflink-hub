@@ -12,11 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const { mobile } = await req.json();
+    let { mobile } = await req.json();
     if (!mobile || mobile.length < 10) {
       return new Response(JSON.stringify({ error: 'Invalid mobile number' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+
+    // Ensure mobile has country code
+    mobile = mobile.trim().replace(/\s+/g, '');
+    if (!mobile.startsWith('+')) {
+      mobile = '+91' + mobile; // Default to India
     }
 
     const supabaseAdmin = createClient(
