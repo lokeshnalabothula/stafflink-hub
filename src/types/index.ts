@@ -57,3 +57,31 @@ export interface ActivityLog {
   user_name: string;
   timestamp: string;
 }
+
+export interface Customer {
+  id: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  company?: string;
+  address?: string;
+  created_at: string;
+}
+
+export type OrderStatus = 'pending' | 'in-progress' | 'completed' | 'cancelled';
+export type OrderPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Order {
+  id: string;
+  title: string;
+  description: string;
+  customer_id: string;
+  customer_name: string;
+  assigned_to: string[];
+  assigned_names: string[];
+  status: OrderStatus;
+  priority: OrderPriority;
+  deadline: string;
+  amount: number;
+  created_at: string;
+}
