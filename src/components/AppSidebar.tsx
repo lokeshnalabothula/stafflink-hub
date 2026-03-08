@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { NavLink } from '@/components/NavLink';
 import {
-  LayoutDashboard, Users, Clock, CalendarOff, Wallet, FileText, User, LogOut
+  LayoutDashboard, Users, Clock, CalendarOff, Wallet, FileText, User, LogOut, ShoppingCart, UserCircle
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupLabel,
@@ -12,6 +12,8 @@ import {
 
 const ownerLinks = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+  { title: 'Orders', url: '/orders', icon: ShoppingCart },
+  { title: 'Customers', url: '/customers', icon: UserCircle },
   { title: 'Employees', url: '/employees', icon: Users },
   { title: 'Attendance', url: '/attendance', icon: Clock },
   { title: 'Leaves', url: '/leaves', icon: CalendarOff },
@@ -21,6 +23,7 @@ const ownerLinks = [
 
 const workerLinks = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+  { title: 'My Orders', url: '/orders', icon: ShoppingCart },
   { title: 'My Attendance', url: '/attendance', icon: Clock },
   { title: 'My Leaves', url: '/leaves', icon: CalendarOff },
   { title: 'My Salary', url: '/payroll', icon: Wallet },

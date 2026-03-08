@@ -1,4 +1,4 @@
-import { User, Department, AttendanceRecord, LeaveRequest, PayrollRecord, ActivityLog } from '@/types';
+import { User, Department, AttendanceRecord, LeaveRequest, PayrollRecord, ActivityLog, Customer, Order } from '@/types';
 
 export const departments: Department[] = [
   { id: 'd1', name: 'Engineering' },
@@ -17,6 +17,24 @@ export const users: User[] = [
   { id: 'u6', name: 'Anita Desai', mobile: '+919876543215', role: 'worker', department_id: 'd5', position: 'Accountant', salary: 60000, join_date: '2022-04-12', address: '89 Ring Road, Chennai', created_at: '2022-04-12' },
   { id: 'u7', name: 'Karan Mehta', mobile: '+919876543216', role: 'worker', department_id: 'd1', position: 'Junior Developer', salary: 45000, join_date: '2023-02-01', address: '34 Sector 5, Noida', created_at: '2023-02-01' },
   { id: 'u8', name: 'Deepa Nair', mobile: '+919876543217', role: 'worker', department_id: 'd2', position: 'Content Writer', salary: 40000, join_date: '2023-05-18', address: '67 Beach Road, Kochi', created_at: '2023-05-18' },
+];
+
+export const customers: Customer[] = [
+  { id: 'c1', name: 'TechVista Solutions', mobile: '+919800100100', email: 'contact@techvista.com', company: 'TechVista Solutions Pvt Ltd', address: '101 IT Park, Pune', created_at: '2024-06-10' },
+  { id: 'c2', name: 'Global Exports Ltd', mobile: '+919800200200', email: 'info@globalexports.in', company: 'Global Exports Ltd', address: '45 Trade Centre, Mumbai', created_at: '2024-08-15' },
+  { id: 'c3', name: 'Sunrise Retail', mobile: '+919800300300', email: 'orders@sunriseretail.com', company: 'Sunrise Retail Group', address: '78 Mall Road, Delhi', created_at: '2025-01-20' },
+  { id: 'c4', name: 'Meera Fashions', mobile: '+919800400400', email: 'meera@meerafashions.in', company: 'Meera Fashions', address: '23 Silk Street, Bangalore', created_at: '2025-03-05' },
+  { id: 'c5', name: 'Raj Construction', mobile: '+919800500500', email: 'raj@rajconstruction.co', company: 'Raj Construction Co', address: '56 Builder Lane, Hyderabad', created_at: '2025-06-12' },
+];
+
+export const orders: Order[] = [
+  { id: 'o1', title: 'Website Redesign', description: 'Complete website overhaul with new branding', customer_id: 'c1', customer_name: 'TechVista Solutions', assigned_to: ['u2', 'u7'], assigned_names: ['Priya Sharma', 'Karan Mehta'], status: 'in-progress', priority: 'high', deadline: '2026-03-15', amount: 250000, created_at: '2026-02-20' },
+  { id: 'o2', title: 'Marketing Campaign Q1', description: 'Digital marketing campaign for Q1 2026', customer_id: 'c2', customer_name: 'Global Exports Ltd', assigned_to: ['u3', 'u8'], assigned_names: ['Amit Patel', 'Deepa Nair'], status: 'in-progress', priority: 'medium', deadline: '2026-03-31', amount: 180000, created_at: '2026-01-15' },
+  { id: 'o3', title: 'Sales Training Program', description: 'Custom sales training for 50 employees', customer_id: 'c3', customer_name: 'Sunrise Retail', assigned_to: ['u4'], assigned_names: ['Sneha Reddy'], status: 'pending', priority: 'medium', deadline: '2026-03-20', amount: 95000, created_at: '2026-03-01' },
+  { id: 'o4', title: 'HR Software Integration', description: 'Integrate payroll system with existing HRMS', customer_id: 'c5', customer_name: 'Raj Construction', assigned_to: ['u2', 'u5'], assigned_names: ['Priya Sharma', 'Vikram Singh'], status: 'pending', priority: 'urgent', deadline: '2026-03-10', amount: 320000, created_at: '2026-03-05' },
+  { id: 'o5', title: 'Brand Identity Package', description: 'Logo, stationery, and brand guidelines', customer_id: 'c4', customer_name: 'Meera Fashions', assigned_to: ['u3'], assigned_names: ['Amit Patel'], status: 'completed', priority: 'low', deadline: '2026-02-28', amount: 75000, created_at: '2026-01-10' },
+  { id: 'o6', title: 'E-commerce Platform', description: 'Build full e-commerce site with payment integration', customer_id: 'c3', customer_name: 'Sunrise Retail', assigned_to: ['u2', 'u7'], assigned_names: ['Priya Sharma', 'Karan Mehta'], status: 'pending', priority: 'high', deadline: '2026-04-15', amount: 450000, created_at: '2026-03-07' },
+  { id: 'o7', title: 'Financial Audit Report', description: 'Prepare quarterly financial audit', customer_id: 'c2', customer_name: 'Global Exports Ltd', assigned_to: ['u6'], assigned_names: ['Anita Desai'], status: 'in-progress', priority: 'high', deadline: '2026-03-12', amount: 120000, created_at: '2026-02-25' },
 ];
 
 export const attendanceRecords: AttendanceRecord[] = [
@@ -50,12 +68,13 @@ export const payrollRecords: PayrollRecord[] = [
 export const activityLogs: ActivityLog[] = [
   { id: 'act1', action: 'Checked in', user_name: 'Priya Sharma', timestamp: '2026-03-08 09:02' },
   { id: 'act2', action: 'Leave approved', user_name: 'Sneha Reddy', timestamp: '2026-03-07 16:30' },
-  { id: 'act3', action: 'Payroll generated for Feb', user_name: 'System', timestamp: '2026-03-01 00:00' },
-  { id: 'act4', action: 'New employee added', user_name: 'Karan Mehta', timestamp: '2026-02-28 11:15' },
-  { id: 'act5', action: 'Leave applied', user_name: 'Priya Sharma', timestamp: '2026-03-07 14:20' },
+  { id: 'act3', action: 'New order created: Website Redesign', user_name: 'Rajesh Kumar', timestamp: '2026-03-07 14:00' },
+  { id: 'act4', action: 'Order completed: Brand Identity Package', user_name: 'Amit Patel', timestamp: '2026-03-06 17:30' },
+  { id: 'act5', action: 'New customer added: Raj Construction', user_name: 'System', timestamp: '2026-03-05 10:00' },
+  { id: 'act6', action: 'Payroll generated for Feb', user_name: 'System', timestamp: '2026-03-01 00:00' },
+  { id: 'act7', action: 'Leave applied', user_name: 'Priya Sharma', timestamp: '2026-03-07 14:20' },
 ];
 
-// Monthly attendance summary for charts
 export const monthlyAttendance = [
   { month: 'Oct', present: 85, absent: 10, late: 5 },
   { month: 'Nov', present: 88, absent: 8, late: 4 },
@@ -71,4 +90,13 @@ export const departmentBreakdown = [
   { name: 'Sales', count: 1 },
   { name: 'HR', count: 1 },
   { name: 'Finance', count: 1 },
+];
+
+export const monthlyRevenue = [
+  { month: 'Oct', revenue: 380000, orders: 4 },
+  { month: 'Nov', revenue: 520000, orders: 6 },
+  { month: 'Dec', revenue: 290000, orders: 3 },
+  { month: 'Jan', revenue: 610000, orders: 5 },
+  { month: 'Feb', revenue: 450000, orders: 7 },
+  { month: 'Mar', revenue: 695000, orders: 4 },
 ];
