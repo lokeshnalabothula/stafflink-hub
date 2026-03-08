@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { attendanceRecords, users } from '@/data/mock';
-import { Button } from '@/components/ui/button';
-import { Clock, LogIn, LogOut } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function AttendancePage() {
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const isOwner = role === 'owner';
-  const [checkedIn, setCheckedIn] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
 
   const statusColors: Record<string, string> = {
     present: 'bg-success/10 text-success',
@@ -17,46 +17,73 @@ export default function AttendancePage() {
     'half-day': 'bg-info/10 text-info',
   };
 
-  const getUserName = (id: string) => users.find(u => u.id === id)?.name || 'Unknown';
+  const { data: attendance = [], isLoading } = useQuery({
+    queryKey: ['attendance', isOwner],
+    queryFn: async () => {
+      const { data } = await supabase.from('attendance').select('*').order('date', { ascending: false });
+      return data || [];
+    },
+  });
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ['profiles-map'],
+    enabled: isOwner,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('user_id, name');
+      return data || [];
+    },
+  });
+
+  const getProfileName = (userId: string) => {
+    const p = profiles.find((p: any) => p.user_id === userId);
+    return p?.name || 'Unknown';
+  };
+
+  const todayRecords = attendance.filter((a: any) => a.date === today);
+
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   if (!isOwner) {
-    // Worker view: read-only attendance history
     return (
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">My Attendance</h1>
-          <p className="text-sm text-muted-foreground">Your attendance history (marked by owner)</p>
+          <p className="text-sm text-muted-foreground">Your attendance history</p>
         </div>
-
         <div className="bg-card rounded-xl border border-border p-5">
           <h3 className="text-sm font-semibold mb-3">Recent Attendance</h3>
-          <div className="space-y-2">
-            {attendanceRecords.filter(a => a.user_id === 'u2').map(a => (
-              <div key={a.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <span className="text-sm">{a.date}</span>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-muted-foreground">{a.check_in || '—'} → {a.check_out || '—'}</span>
-                  <span className={cn('px-2 py-0.5 rounded-full font-medium capitalize', statusColors[a.status])}>{a.status}</span>
+          {attendance.length > 0 ? (
+            <div className="space-y-2">
+              {attendance.slice(0, 20).map((a: any) => (
+                <div key={a.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm">{a.date}</span>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-muted-foreground">{a.check_in || '—'} → {a.check_out || '—'}</span>
+                    <span className={cn('px-2 py-0.5 rounded-full font-medium capitalize', statusColors[a.status])}>{a.status}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">No attendance records</p>
+          )}
         </div>
       </div>
     );
   }
 
-  // Owner view: mark attendance for workers
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Attendance</h1>
-        <p className="text-sm text-muted-foreground">Mark and manage employee attendance — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p className="text-sm text-muted-foreground">
+          Manage employee attendance — {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {Object.entries(statusColors).map(([status, cls]) => {
-          const count = attendanceRecords.filter(a => a.date === '2026-03-08' && a.status === status).length;
+          const count = todayRecords.filter((a: any) => a.status === status).length;
           return (
             <div key={status} className="stat-card text-center">
               <p className={cn('text-2xl font-bold', cls.split(' ')[1])}>{count}</p>
@@ -74,20 +101,22 @@ export default function AttendancePage() {
           <span>Status</span>
           <span>Hours</span>
         </div>
-        {attendanceRecords.filter(a => a.date === '2026-03-08').map(a => {
+        {todayRecords.length > 0 ? todayRecords.map((a: any) => {
           const hours = a.check_in && a.check_out
             ? ((parseInt(a.check_out.split(':')[0]) * 60 + parseInt(a.check_out.split(':')[1])) - (parseInt(a.check_in.split(':')[0]) * 60 + parseInt(a.check_in.split(':')[1]))) / 60
             : null;
           return (
             <div key={a.id} className="grid grid-cols-5 gap-4 p-3 border-t border-border items-center text-sm">
-              <span className="font-medium truncate">{getUserName(a.user_id)}</span>
+              <span className="font-medium truncate">{getProfileName(a.user_id)}</span>
               <span className="text-muted-foreground">{a.check_in || '—'}</span>
               <span className="text-muted-foreground">{a.check_out || '—'}</span>
               <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium capitalize w-fit', statusColors[a.status])}>{a.status}</span>
               <span className="text-muted-foreground">{hours ? `${hours.toFixed(1)}h` : '—'}</span>
             </div>
           );
-        })}
+        }) : (
+          <div className="p-6 text-center text-sm text-muted-foreground">No attendance records for today</div>
+        )}
       </div>
     </div>
   );

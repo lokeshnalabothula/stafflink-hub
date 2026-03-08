@@ -18,7 +18,7 @@ interface AuthContextType {
   role: 'owner' | 'worker' | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (data: { user_id: string; role: string; profile: UserProfile }) => void;
+  login: (data: { user_id: string; role: string; profile: UserProfile; session: { access_token: string; refresh_token: string } }) => Promise<void>;
   logout: () => void;
 }
 
@@ -30,31 +30,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored session
-    const stored = localStorage.getItem('staffhub_session');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setUser(parsed.user);
-        setRole(parsed.role);
-      } catch {
-        localStorage.removeItem('staffhub_session');
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        // Fetch profile and role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (profile) {
+          setUser({
+            user_id: session.user.id,
+            name: profile.name,
+            mobile: profile.mobile,
+            department: profile.department || undefined,
+            position: profile.position || undefined,
+            salary: profile.salary || undefined,
+            join_date: profile.join_date || undefined,
+            address: profile.address || undefined,
+            profile_photo: profile.profile_photo || undefined,
+          });
+          setRole((roleData?.role as 'owner' | 'worker') || 'worker');
+        }
+      } else {
+        setUser(null);
+        setRole(null);
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    });
+
+    // Check existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setIsLoading(false);
+      }
+      // onAuthStateChange will handle the rest
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const login = (data: { user_id: string; role: string; profile: UserProfile }) => {
+  const login = async (data: { user_id: string; role: string; profile: UserProfile; session: { access_token: string; refresh_token: string } }) => {
+    // Set the Supabase session
+    await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+    
     const userRole = data.role as 'owner' | 'worker';
     setUser(data.profile);
     setRole(userRole);
-    localStorage.setItem('staffhub_session', JSON.stringify({ user: data.profile, role: userRole }));
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setRole(null);
-    localStorage.removeItem('staffhub_session');
   };
 
   return (

@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { orders, customers, users } from '@/data/mock';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Search, Calendar, AlertTriangle, Clock, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { Plus, Search, Calendar, AlertTriangle, Clock, CheckCircle2, XCircle, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 const priorityStyles: Record<string, string> = {
   low: 'bg-muted text-muted-foreground',
@@ -32,25 +34,74 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 export default function OrdersPage() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const isOwner = role === 'owner';
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [addOpen, setAddOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', description: '', customer_id: '', priority: 'medium', deadline: '', amount: '' });
+  const queryClient = useQueryClient();
 
-  const myOrders = isOwner ? orders : orders;
-  const filtered = myOrders.filter(o => {
-    const matchSearch = o.title.toLowerCase().includes(search.toLowerCase()) || o.customer_name.toLowerCase().includes(search.toLowerCase());
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ['orders'],
+    queryFn: async () => {
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      return data || [];
+    },
+  });
+
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers-list'],
+    enabled: isOwner,
+    queryFn: async () => {
+      const { data } = await supabase.from('customers').select('id, name');
+      return data || [];
+    },
+  });
+
+  const { data: workers = [] } = useQuery({
+    queryKey: ['workers-list'],
+    enabled: isOwner,
+    queryFn: async () => {
+      const { data: roles } = await supabase.from('user_roles').select('user_id').eq('role', 'worker');
+      if (!roles?.length) return [];
+      const { data: profiles } = await supabase.from('profiles').select('user_id, name').in('user_id', roles.map(r => r.user_id));
+      return profiles || [];
+    },
+  });
+
+  const createOrderMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('orders').insert({
+        title: form.title,
+        description: form.description,
+        customer_id: form.customer_id || null,
+        priority: form.priority,
+        deadline: form.deadline || null,
+        amount: form.amount ? Number(form.amount) : 0,
+        created_by: user!.user_id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Order created');
+      setAddOpen(false);
+      setForm({ title: '', description: '', customer_id: '', priority: 'medium', deadline: '', amount: '' });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  const filtered = orders.filter((o: any) => {
+    const matchSearch = o.title?.toLowerCase().includes(search.toLowerCase()) || o.description?.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
-  const getDaysLeft = (deadline: string) => {
-    const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    return diff;
-  };
+  const getDaysLeft = (deadline: string) => Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const getCustomerName = (id: string) => customers.find((c: any) => c.id === id)?.name || '—';
 
-  const workers = users.filter(u => u.role === 'worker');
+  if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
 
   return (
     <div className="space-y-6">
@@ -67,18 +118,18 @@ export default function OrdersPage() {
             <DialogContent className="max-w-lg">
               <DialogHeader><DialogTitle>Create New Order</DialogTitle></DialogHeader>
               <div className="grid gap-4 py-2">
-                <div><Label>Order Title</Label><Input placeholder="e.g. Website Redesign" /></div>
-                <div><Label>Description</Label><Input placeholder="Brief description of the order" /></div>
+                <div><Label>Order Title</Label><Input placeholder="e.g. Website Redesign" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
+                <div><Label>Description</Label><Input placeholder="Brief description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Customer</Label>
-                    <Select>
+                    <Select value={form.customer_id} onValueChange={v => setForm(f => ({ ...f, customer_id: v }))}>
                       <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                      <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                      <SelectContent>{customers.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
                   <div><Label>Priority</Label>
-                    <Select>
-                      <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                    <Select value={form.priority} onValueChange={v => setForm(f => ({ ...f, priority: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="low">Low</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
@@ -89,16 +140,13 @@ export default function OrdersPage() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Deadline</Label><Input type="date" /></div>
-                  <div><Label>Amount (₹)</Label><Input type="number" placeholder="100000" /></div>
+                  <div><Label>Deadline</Label><Input type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} /></div>
+                  <div><Label>Amount (₹)</Label><Input type="number" placeholder="100000" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
                 </div>
-                <div><Label>Assign Workers</Label>
-                  <Select>
-                    <SelectTrigger><SelectValue placeholder="Select workers" /></SelectTrigger>
-                    <SelectContent>{workers.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <Button className="w-full mt-2" onClick={() => setAddOpen(false)}>Create Order</Button>
+                <Button className="w-full mt-2" onClick={() => createOrderMutation.mutate()} disabled={createOrderMutation.isPending}>
+                  {createOrderMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Create Order
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -113,7 +161,7 @@ export default function OrdersPage() {
                 {statusIcons[status]}
                 <span className="capitalize">{status}</span>
               </div>
-              <p className="text-2xl font-bold">{orders.filter(o => o.status === status).length}</p>
+              <p className="text-2xl font-bold">{orders.filter((o: any) => o.status === status).length}</p>
             </div>
           ))}
         </div>
@@ -122,7 +170,7 @@ export default function OrdersPage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search orders or customers..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Search orders..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
@@ -136,58 +184,59 @@ export default function OrdersPage() {
         </Select>
       </div>
 
-      <div className="grid gap-3">
-        {filtered.map((order, i) => {
-          const daysLeft = getDaysLeft(order.deadline);
-          const overdue = daysLeft < 0;
-          const urgent = daysLeft >= 0 && daysLeft <= 3;
-          return (
-            <motion.div
-              key={order.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="bg-card rounded-xl border border-border p-4 hover:shadow-sm transition-shadow"
-            >
-              <div className="flex items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <p className="font-semibold text-sm">{order.title}</p>
-                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium capitalize', statusStyles[order.status])}>
-                      {order.status}
-                    </span>
-                    <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium capitalize', priorityStyles[order.priority])}>
-                      {order.priority}
-                    </span>
+      {filtered.length === 0 ? (
+        <p className="text-center py-12 text-muted-foreground">No orders found</p>
+      ) : (
+        <div className="grid gap-3">
+          {filtered.map((order: any, i: number) => {
+            const daysLeft = order.deadline ? getDaysLeft(order.deadline) : null;
+            const overdue = daysLeft !== null && daysLeft < 0;
+            const urgent = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+            return (
+              <motion.div
+                key={order.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-card rounded-xl border border-border p-4 hover:shadow-sm transition-shadow"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="font-semibold text-sm">{order.title}</p>
+                      <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium capitalize', statusStyles[order.status])}>
+                        {order.status}
+                      </span>
+                      <span className={cn('text-[10px] px-2 py-0.5 rounded-full font-medium capitalize', priorityStyles[order.priority])}>
+                        {order.priority}
+                      </span>
+                    </div>
+                    {order.description && <p className="text-xs text-muted-foreground mb-2">{order.description}</p>}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {order.customer_id && <span>Customer: <span className="font-medium text-foreground">{getCustomerName(order.customer_id)}</span></span>}
+                      <span>Amount: <span className="font-medium text-foreground">₹{(order.amount || 0).toLocaleString()}</span></span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">{order.description}</p>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>Customer: <span className="font-medium text-foreground">{order.customer_name}</span></span>
-                    <span>Amount: <span className="font-medium text-foreground">₹{order.amount.toLocaleString()}</span></span>
-                    <span className="flex items-center gap-1">
-                      Assigned: {order.assigned_names.map(n => (
-                        <span key={n} className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium">{n.split(' ')[0]}</span>
-                      ))}
-                    </span>
-                  </div>
-                </div>
-                <div className={cn(
-                  'text-right shrink-0 px-3 py-2 rounded-lg text-xs font-medium',
-                  overdue ? 'bg-destructive/10 text-destructive' : urgent ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'
-                )}>
-                  <Calendar className="w-3.5 h-3.5 mx-auto mb-1" />
-                  {overdue ? (
-                    <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Overdue</span>
-                  ) : (
-                    <span>{daysLeft}d left</span>
+                  {order.deadline && (
+                    <div className={cn(
+                      'text-right shrink-0 px-3 py-2 rounded-lg text-xs font-medium',
+                      overdue ? 'bg-destructive/10 text-destructive' : urgent ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground'
+                    )}>
+                      <Calendar className="w-3.5 h-3.5 mx-auto mb-1" />
+                      {overdue ? (
+                        <span className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Overdue</span>
+                      ) : (
+                        <span>{daysLeft}d left</span>
+                      )}
+                      <p className="text-[10px] mt-0.5 opacity-70">{order.deadline}</p>
+                    </div>
                   )}
-                  <p className="text-[10px] mt-0.5 opacity-70">{order.deadline}</p>
                 </div>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

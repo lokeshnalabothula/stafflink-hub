@@ -65,23 +65,22 @@ export default function LoginPage() {
       });
       if (error) throw error;
       if (data?.error) {
+        if (data?.is_new_user) {
+          setIsNewUser(true);
+          setStep('signup');
+          setLoading(false);
+          return;
+        }
         toast.error(data.error);
         return;
       }
 
-      if (data?.is_new_user && !name) {
-        // New user needs to provide name and role
-        setIsNewUser(true);
-        setStep('signup');
-        setLoading(false);
-        return;
-      }
-
-      // Login successful
-      login({
+      // Login with real session
+      await login({
         user_id: data.user_id,
         role: data.role,
         profile: data.profile,
+        session: data.session,
       });
       toast.success('Welcome to StaffHub!');
       navigate('/dashboard');

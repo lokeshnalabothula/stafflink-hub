@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -70,7 +70,6 @@ serve(async (req) => {
     const otpHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
     if (otpHash !== otpRecord.otp_hash) {
-      // Increment attempts
       await supabaseAdmin
         .from('otp_verification')
         .update({ attempts: (otpRecord.attempts || 0) + 1 })
@@ -86,22 +85,43 @@ serve(async (req) => {
     // Check if user exists by mobile in profiles
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .select('user_id')
+      .select('user_id, status')
       .eq('mobile', mobile)
       .single();
 
     let userId: string;
     let isNewUser = false;
+    const email = `${mobile.replace(/[^0-9]/g, '')}@staffhub.local`;
+    const tempPassword = `StaffHub_${mobile.replace(/[^0-9]/g, '')}_Secure!`;
 
     if (existingProfile) {
       userId = existingProfile.user_id;
+      // If profile was pre-registered by owner, mark as active now
+      if (existingProfile.status === 'pending') {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ status: 'active' })
+          .eq('user_id', userId);
+        
+        // Update password for the pre-created user so they can sign in
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: tempPassword,
+        });
+      }
     } else {
-      // New user — create auth user with phone
+      // New user
       isNewUser = true;
-      const email = `${mobile.replace(/[^0-9]/g, '')}@staffhub.local`;
+
+      if (!name) {
+        return new Response(JSON.stringify({ error: 'Name is required for new users', is_new_user: true }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email,
         phone: mobile,
+        password: tempPassword,
         email_confirm: true,
         phone_confirm: true,
         user_metadata: { name: name || 'User', mobile, role: role || 'worker' },
@@ -116,29 +136,39 @@ serve(async (req) => {
 
       userId = newUser.user.id;
 
-      // Create profile
       await supabaseAdmin.from('profiles').insert({
         user_id: userId,
         name: name || 'User',
         mobile,
+        status: 'active',
       });
 
-      // Assign role
       await supabaseAdmin.from('user_roles').insert({
         user_id: userId,
         role: role || 'worker',
       });
     }
 
-    // Generate a session token using admin
-    const { data: session, error: signInErr } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: `${mobile.replace(/[^0-9]/g, '')}@staffhub.local`,
+    // Sign in the user to get a real session
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    // Ensure password is set
+    await supabaseAdmin.auth.admin.updateUserById(userId, {
+      password: tempPassword,
     });
 
-    if (signInErr) {
-      console.error('Generate link error:', signInErr);
-      // Fallback: sign in with password-like approach
+    const signInClient = createClient(supabaseUrl, anonKey);
+    const { data: signInData, error: signInErr } = await signInClient.auth.signInWithPassword({
+      email,
+      password: tempPassword,
+    });
+
+    if (signInErr || !signInData.session) {
+      console.error('Sign in error:', signInErr);
+      return new Response(JSON.stringify({ error: 'Failed to create session' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Get user's role
@@ -161,10 +191,10 @@ serve(async (req) => {
       user_id: userId,
       role: roleData?.role || 'worker',
       profile,
-      // Include the hashed properties token for client-side session
-      token_hash: session?.properties?.hashed_token,
-      verification_url: session?.properties?.verification_type ? 
-        `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token=${session?.properties?.hashed_token}&type=magiclink` : null,
+      session: {
+        access_token: signInData.session.access_token,
+        refresh_token: signInData.session.refresh_token,
+      },
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
