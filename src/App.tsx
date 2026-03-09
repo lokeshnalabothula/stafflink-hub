@@ -19,13 +19,23 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+/**
+ * Get the basename from the current URL for GitHub Pages compatibility
+ * For project repos: /repository-name
+ * For user/org pages: /
+ */
+const getBasename = () => {
+  const base = import.meta.env.BASE_URL || "/";
+  return base;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={getBasename()}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<AppLayout><DashboardPage /></AppLayout>} />
