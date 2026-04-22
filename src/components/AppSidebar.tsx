@@ -36,6 +36,13 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const links = role === 'owner' ? ownerLinks : workerLinks;
 
+  const initials = user?.name
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || '?';
+
   return (
     <Sidebar collapsible="icon" className="border-r-0">
       <SidebarContent className="pt-4">
@@ -77,13 +84,32 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && user && (
           <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-sidebar-accent/40 mb-2">
-            <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-xs font-bold">
-              {user.name?.charAt(0) || '?'}
-            </div>
+            {user.profile_photo ? (
+              <img
+                src={user.profile_photo}
+                alt={user.name}
+                className="w-8 h-8 rounded-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-sidebar-primary/20 flex items-center justify-center text-sidebar-primary text-xs font-bold">
+                {initials}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium text-sidebar-primary-foreground truncate">{user.name}</p>
-              <p className="text-[10px] text-sidebar-foreground/50 capitalize">{role}</p>
+              <p className="text-[10px] text-sidebar-foreground/50 truncate">{user.email || role}</p>
             </div>
+          </div>
+        )}
+        {collapsed && user?.profile_photo && (
+          <div className="flex justify-center mb-2">
+            <img
+              src={user.profile_photo}
+              alt={user.name}
+              className="w-8 h-8 rounded-full object-cover"
+              referrerPolicy="no-referrer"
+            />
           </div>
         )}
         <SidebarMenu>
